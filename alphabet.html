@@ -1,0 +1,613 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <title>Учим алфавит</title>
+  <style>
+    body {
+      margin: 0;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+      background: #f0f8ff;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+    }
+    .game-container {
+      width: 900px;
+      max-width: 100%;
+      height: 600px;
+      max-height: 100%;
+      background: #ffffff;
+      border-radius: 24px;
+      box-shadow: 0 12px 32px rgba(0,0,0,0.15);
+      display: flex;
+      overflow: hidden;
+      position: relative;
+    }
+    .left, .right {
+      padding: 24px;
+      box-sizing: border-box;
+    }
+    .left {
+      flex: 2;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      gap: 16px;
+    }
+    .right {
+      flex: 1;
+      background: linear-gradient(180deg,#ffecd2,#fcb69f);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      position: relative;
+    }
+    .letter-box {
+      width: 220px;
+      height: 220px;
+      border-radius: 32px;
+      background: #fff;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 10px 25px rgba(0,0,0,0.2);
+      font-size: 160px;
+      font-weight: 900;
+      color: #ff6b6b;
+    }
+    .level-info {
+      margin-top: 16px;
+      font-size: 18px;
+      color: #5b3a29;
+      text-align: center;
+      font-weight: 600;
+    }
+    .images-row {
+      display: flex;
+      gap: 16px;
+      justify-content: center;
+    }
+    .image-option {
+      flex: 1;
+      min-width: 0;
+      background: #f5f5ff;
+      border-radius: 20px;
+      border: 4px solid transparent;
+      cursor: pointer;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: space-between;
+      padding: 8px;
+      transition: transform .15s ease, box-shadow .15s ease, border-color .15s ease, background .15s ease;
+    }
+    .image-option img {
+      max-width: 100%;
+      max-height: 160px;
+      object-fit: contain;
+      border-radius: 16px;
+    }
+    .image-caption {
+      margin-top: 6px;
+      font-size: 20px;
+      font-weight: 600;
+      color: #333;
+    }
+    .image-option:hover {
+      transform: translateY(-4px);
+      box-shadow: 0 6px 16px rgba(0,0,0,0.15);
+      background: #eef2ff;
+    }
+    .image-option.correct {
+      border-color: #22c55e;
+    }
+    .image-option.wrong {
+      border-color: #ef4444;
+    }
+    .message {
+      margin-top: 12px;
+      font-size: 20px;
+      font-weight: 600;
+      text-align: center;
+      min-height: 28px;
+    }
+    .message.ok {
+      color: #16a34a;
+    }
+    .message.error {
+      color: #dc2626;
+    }
+
+    /* простая анимация конфетти */
+    .confetti {
+      position: absolute;
+      top: -10px;
+      font-size: 24px;
+      animation: confetti-fall linear 2.2s forwards;
+      pointer-events: none;
+      z-index: 5;
+    }
+    @keyframes confetti-fall {
+      from { transform: translateY(0) rotate(0deg); opacity: 1; }
+      to   { transform: translateY(650px) rotate(360deg); opacity: 0; }
+    }
+
+    /* модальное окно «победа» */
+    .overlay {
+      position: absolute;
+      inset: 0;
+      background: rgba(0,0,0,0.5);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 10;
+    }
+    .overlay-content {
+      background: #fff;
+      border-radius: 24px;
+      padding: 24px 32px;
+      text-align: center;
+      max-width: 420px;
+      box-shadow: 0 12px 30px rgba(0,0,0,0.25);
+    }
+    .overlay-content h2 {
+      margin: 0 0 12px;
+      font-size: 26px;
+    }
+    .overlay-content p {
+      margin: 0 0 20px;
+      font-size: 18px;
+    }
+    .btn {
+      padding: 10px 24px;
+      font-size: 18px;
+      border-radius: 999px;
+      border: none;
+      cursor: pointer;
+      background: #22c55e;
+      color: #fff;
+      font-weight: 600;
+      box-shadow: 0 6px 16px rgba(22,163,74,0.5);
+    }
+    .btn:hover {
+      background: #16a34a;
+    }
+  </style>
+</head>
+<body>
+<div class="game-container">
+  <div class="left">
+    <div class="images-row" id="imagesRow"></div>
+    <div class="message" id="message"></div>
+  </div>
+  <div class="right">
+    <div class="letter-box" id="letterBox">А</div>
+    <div class="level-info" id="levelInfo"></div>
+  </div>
+
+  <div class="overlay" id="winOverlay">
+    <div class="overlay-content">
+      <h2>Молодец!</h2>
+      <p>Ты выучил все буквы русского алфавита!</p>
+      <button class="btn" id="restartAllBtn">Играть сначала</button>
+    </div>
+  </div>
+
+  <div id="confettiContainer"></div>
+</div>
+
+<audio id="fanfareSound" src="sounds/win.mp3" preload="auto"></audio>
+<audio id="wrongSound" src="sounds/loose.wav" preload="auto"></audio>
+
+<script>
+  // Настрой: сюда подставь свои картинки.
+  // correct: правильная картинка, others: 2 любые другие.
+  // Пути должны соответствовать реальным файлам PNG/JPG/SVG.
+
+const LEVELS = [
+  {
+    letter: 'А',
+    word: 'Арбуз',
+    options: [
+      { src: 'img/11456831.png', caption: 'Арбуз', correct: true },
+      { src: 'img/11452733.png',        caption: 'Машина', correct: false },
+      { src: 'img/10478061.png',      caption: 'Дом',    correct: false }
+    ]
+  },
+  {
+    letter: 'Б',
+    word: 'Бабочка',
+    options: [
+      { src: 'img/butterfly-clipart-lg.png', caption: 'Бабочка', correct: true },
+      { src: 'img/cartoon-sun-clipart-lg.png',       caption: 'Солнце',  correct: false },
+      { src: 'img/beach-ball-clipart-lg.png',      caption: 'Мяч',     correct: false }
+    ]
+  },
+  {
+    letter: 'В',
+    word: 'Велосипед',
+    options: [
+      { src: 'img/bicycle-clipart-lg.png',   caption: 'Велосипед', correct: true },
+      { src: 'img/cat-clipart-lg.png',    caption: 'Кот',       correct: false },
+      { src: 'img/tree-clipart-lg.png',   caption: 'Дерево',    correct: false }
+    ]
+  },
+  {
+    letter: 'Г',
+    word: 'Гриб',
+    options: [
+      { src: 'img/mushroom-clipart-lg.png', caption: 'Гриб',   correct: true },
+      { src: 'img/airplane-clipart-lg.png',    caption: 'Самолёт', correct: false },
+      { src: 'img/horoscope-book-clipart-lg.png',     caption: 'Книга',   correct: false }
+    ]
+  },
+  {
+    letter: 'Д',
+    word: 'Дом',
+    options: [
+      { src: 'img/home-clipart-lg.png',  caption: 'Дом',     correct: true },
+      { src: 'img/bullet-train-clipart-lg.png',  caption: 'Поезд',   correct: false },
+      { src: 'img/morning-glory-flower-clipart-lg.png', caption: 'Цветок',  correct: false }
+    ]
+  },
+  {
+    letter: 'Е',
+    word: 'Елка',
+    options: [
+      { src: 'img/christmas-tree-clipart-lg.png',   caption: 'Ёлка',    correct: true },
+      { src: 'img/dog-clipart-lg.png',    caption: 'Собака',  correct: false },
+      { src: 'img/pirate-ship-amusement-ride-clipart-lg.png',   caption: 'Корабль', correct: false }
+    ]
+  },
+  {
+    letter: 'Ё',
+    word: 'Ёж',
+    options: [
+      { src: 'img/hedgehog-with-apple-mushroom-and-leaf-clipart-lg.png', caption: 'Ёж',       correct: true },
+      { src: 'img/clownfish-clipart-lg.png',     caption: 'Рыба',     correct: false },
+      { src: 'img/img/bird-clipart-lg.png',     caption: 'Птица',    correct: false }
+    ]
+  },
+  {
+    letter: 'Ж',
+    word: 'Жираф',
+    options: [
+      { src: 'img/giraffe-clipart-lg.png', caption: 'Жираф', correct: true },
+      { src: 'img/chair-clipart-lg.png',   caption: 'Стул',  correct: false },
+      { src: 'img/cloud-with-rain-clipart-lg.png',   caption: 'Облако',correct: false }
+    ]
+  },
+  {
+    letter: 'З',
+    word: 'Заяц',
+    options: [
+      { src: 'img/easter-bunny-clipart-lg.png',  caption: 'Заяц',  correct: true },
+      { src: 'img/apple-fruits-food-clipart-lg.png',   caption: 'Яблоко',correct: false },
+      { src: 'bus-clipart-lg.png',     caption: 'Автобус', correct: false }
+    ]
+  },
+  {
+    letter: 'И',
+    word: 'Ирис',
+    options: [
+      { src: 'img/turkey-clipart-lg.png',   caption: 'Индюк',     correct: true },
+      { src: 'img/cowboy-hat-clipart-lg.png',     caption: 'Шляпа',    correct: false },
+      { src: 'student-desk-clipart-lg.png',   caption: 'Стол',     correct: false }
+    ]
+  },
+  {
+    letter: 'Й',
+    word: 'Йогурт',
+    options: [
+      { src: 'img/strawberry-yogurt-remix-clipart-lg.png', caption: 'Йогурт', correct: true },
+      { src: 'img/shooting-star-clipart-lg.png',   caption: 'Звезда', correct: false },
+      { src: 'img/red-balloon-clipart-lg.png',caption: 'Шарик',  correct: false }
+    ]
+  },
+  {
+    letter: 'К',
+    word: 'Кот',
+    options: [
+      { src: 'img/kitten-clipart-lg.png',    caption: 'Кот',   correct: true },
+      { src: 'img/aircraft-clipart-lg.png',  caption: 'Самолёт', correct: false },
+      { src: 'img/wild-cherry-tree-spring-leaf-clipart-lg.png',   caption: 'Лист',  correct: false }
+    ]
+  },
+  {
+    letter: 'Л',
+    word: 'Лев',
+    options: [
+      { src: 'img/lion-clipart-lg.png',   caption: 'Лев',   correct: true },
+      { src: 'img/water-bottle-clipart-lg.png', caption: 'Бутылка', correct: false },
+      { src: 'img/train-clipart-lg.png',  caption: 'Поезд', correct: false }
+    ]
+  },
+  {
+    letter: 'М',
+    word: 'Машина',
+    options: [
+      { src: 'img/race-car-clipart-lg.png',    caption: 'Машина', correct: true },
+      { src: 'img/eastern-bluebird-clipart-lg.png',   caption: 'Птица',  correct: false },
+      { src: 'img/strawberry-clipart-lg.png', caption: 'Клубника', correct: false }
+    ]
+  },
+  {
+    letter: 'Н',
+    word: 'Носорог',
+    options: [
+      { src: 'img/rhinoceros-clipart-lg.png',  caption: 'Носорог', correct: true },
+      { src: 'img/tea-cup-clipart-lg',    caption: 'Чашка',   correct: false },
+      { src: 'img/tree-swing-clipart-lg.png',   caption: 'Дерево',  correct: false }
+    ]
+  },
+  {
+    letter: 'О',
+    word: 'Обезьяна',
+    options: [
+      { src: 'img/monkey-clipart-lg.png', caption: 'Обезьяна', correct: true },
+      { src: 'img/rocket-clipart-lg.png', caption: 'Ракета',   correct: false },
+      { src: 'img/morning-glory-flower-clipart-lg.png', caption: 'Цветок',   correct: false }
+    ]
+  },
+  {
+    letter: 'П',
+    word: 'Панда',
+    options: [
+      { src: 'img/panda-with-bamboo-clipart-lg.png',  caption: 'Панда', correct: true },
+      { src: 'img/sun-clipart-lg.png',    caption: 'Солнце', correct: false },
+      { src: 'img/bus-car-clipart-lg.png',    caption: 'Автобус', correct: false }
+    ]
+  },
+  {
+    letter: 'Р',
+    word: 'Рыба',
+    options: [
+      { src: 'img/ert.png',   caption: 'Рыба', correct: true },
+      { src: 'img/doll-clipart-lg.png',   caption: 'Кукла', correct: false },
+      { src: 'img/country-house-clipart-lg.png',  caption: 'Дом',   correct: false }
+    ]
+  },
+  {
+    letter: 'С',
+    word: 'Собака',
+    options: [
+      { src: 'img/rty.png',    caption: 'Собака', correct: true },
+      { src: 'img/carrot-vegetable-clipart-lg.png', caption: 'Морковь', correct: false },
+      { src: 'img/vintage-airplane-clipart-lg.png',  caption: 'Самолёт', correct: false }
+    ]
+  },
+  {
+    letter: 'Т',
+    word: 'Тигр',
+    options: [
+      { src: 'img/bengal-tiger-clipart-lg.png',  caption: 'Тигр',  correct: true },
+      { src: 'img/cardboard-box-clipart-lg.png',    caption: 'Коробка', correct: false },
+      { src: 'img/ghf.png',    caption: 'Шляпа', correct: false }
+    ]
+  },
+  {
+    letter: 'У',
+    word: 'Утка',
+    options: [
+      { src: 'img/rubber-duck-clipart-lg.png',   caption: 'Утка',  correct: true },
+      { src: 'img/shooting-star-clipart-lg.png',   caption: 'Звезда', correct: false },
+      { src: 'img/bullet-train-clipart-lg.png',  caption: 'Поезд', correct: false }
+    ]
+  },
+  {
+    letter: 'Ф',
+    word: 'Фламинго',
+    options: [
+      { src: 'img/flamingo-clipart-lg.png', caption: 'Фламинго', correct: true },
+      { src: 'img/apple-fruits-food-clipart-lg.png',    caption: 'Яблоко',   correct: false },
+      { src: 'img/cloud-with-rain-clipart-lg.png',    caption: 'Облако',   correct: false }
+    ]
+  },
+  {
+    letter: 'Х',
+    word: 'Хомяк',
+    options: [
+      { src: 'img/refrigerator-clipart-lg.png', caption: 'Холодильник', correct: true },
+      { src: 'img/cake-with-a-candle-clipart-lg.png',    caption: 'Торт',  correct: false },
+      { src: 'img/aircraft-clipart-lg.png',   caption: 'Самолёт', correct: false }
+    ]
+  },
+  {
+    letter: 'Ц',
+    word: 'Цыплёнок',
+    options: [
+      { src: 'img/easter-chicken-clipart-lg.png',  caption: 'Цыплёнок', correct: true },
+      { src: 'img/beach-ball-clipart-lg.png',   caption: 'Мяч',      correct: false },
+      { src: 'img/orange-flower-clipart-lg.png', caption: 'Цветок',   correct: false }
+    ]
+  },
+  {
+    letter: 'Ч',
+    word: 'Черепаха',
+    options: [
+      { src: 'img/turtle-clipart-lg.png', caption: 'Черепаха', correct: true },
+      { src: 'img/bus-car-clipart-lg.png',    caption: 'Автобус',  correct: false },
+      { src: 'img/cowboy-hat-clipart-lg.png',    caption: 'Шляпа',    correct: false }
+    ]
+  },
+  {
+    letter: 'Ш',
+    word: 'Шар',
+    options: [
+      { src: 'img/wardrobe-furniture-clipart-lg.png', caption: 'Шкаф',   correct: true },
+      { src: 'img/tree-clipart-lg.png',    caption: 'Дерево',correct: false },
+      { src: 'img/kitten-clipart-lg.png',     caption: 'Кот',   correct: false }
+    ]
+  },
+  {
+    letter: 'Щ',
+    word: 'Щенок',
+    options: [
+      { src: 'img/birthday-boy-with-his-new-puppy-clipart-lg.png', caption: 'Щенок', correct: true },
+      { src: 'img/race-car-clipart-lg.png',   caption: 'Машина', correct: false },
+      { src: 'img/cartoon-sun-clipart-lg.png',   caption: 'Солнце', correct: false }
+    ]
+  },
+  {
+    letter: 'Ъ',
+    word: 'Твёрдый знак',
+    options: [
+      { src: 'img/tv_sign.png',   caption: 'Твёрдый знак', correct: true },
+      { src: 'img/horoscope-book-clipart-lg.png',   caption: 'Книга',         correct: false },
+      { src: 'img/shooting-star-clipart-lg.png',   caption: 'Звезда',        correct: false }
+    ]
+  },
+  {
+    letter: 'Ы',
+    word: 'Сыр',
+    options: [
+      { src: 'img/y_cheese.png', caption: 'Сыр',  correct: true },
+      { src: 'img/cloud-with-rain-clipart-lg.png', caption: 'Облако', correct: false },
+      { src: 'img/train-clipart-lg.png', caption: 'Поезд',  correct: false }
+    ]
+  },
+  {
+    letter: 'Ь',
+    word: 'Мягкий знак',
+    options: [
+      { src: 'img/myag_sign.png', caption: 'Мягкий знак', correct: true },
+      { src: 'img/wild-cherry-tree-spring-leaf-clipart-lg.png', caption: 'Лист',        correct: false },
+      { src: 'img/doll-clipart-lg.png', caption: 'Кукла',       correct: false }
+    ]
+  },
+  {
+    letter: 'Э',
+    word: 'Эскимо',
+    options: [
+      { src: 'img/icepop-clipart-lg.png', caption: 'Эскимо', correct: true },
+      { src: 'img/airplane-clipart-lg.png',   caption: 'Самолёт', correct: false },
+      { src: 'img/beach-ball-clipart-lg.png',     caption: 'Мяч',     correct: false }
+    ]
+  },
+  {
+    letter: 'Ю',
+    word: 'Юла',
+    options: [
+      { src: 'img/png-klev-club-dx7m-p-yula-png-17.png', caption: 'Юла',   correct: true },
+      { src: 'img/bear-clipart-lg.png',    caption: 'Медведь', correct: false },
+      { src: 'img/horoscope-book-clipart-lg.png',    caption: 'Книга',   correct: false }
+    ]
+  },
+  {
+    letter: 'Я',
+    word: 'Яблоко',
+    options: [
+      { src: 'img/apple-fruits-food-clipart-lg.png', caption: 'Яблоко', correct: true },
+      { src: 'img/11452733.png',   caption: 'Машина', correct: false },
+      { src: 'img/orange-flower-clipart-lg.png',caption: 'Цветок', correct: false }
+    ]
+  }
+];
+
+const letterBox = document.getElementById('letterBox');
+  const imagesRow = document.getElementById('imagesRow');
+  const messageEl = document.getElementById('message');
+  const levelInfo = document.getElementById('levelInfo');
+  const fanfareSound = document.getElementById('fanfareSound');
+  const wrongSound = document.getElementById('wrongSound');
+  const confettiContainer = document.getElementById('confettiContainer');
+  const winOverlay = document.getElementById('winOverlay');
+  const restartAllBtn = document.getElementById('restartAllBtn');
+
+  let currentLevel = 0;
+  let locked = false; // блокируем клики во время анимации
+
+  function renderLevel(index) {
+    const level = LEVELS[index];
+    if (!level) return;
+    letterBox.textContent = level.letter;
+    levelInfo.textContent = `Буква «${level.letter}». Найди слово, которое начинается на эту букву.`;
+    messageEl.textContent = '';
+    messageEl.className = 'message';
+    imagesRow.innerHTML = '';
+
+    const shuffled = [...level.options].sort(() => Math.random() - 0.5);
+    shuffled.forEach((opt) => {
+      const card = document.createElement('div');
+      card.className = 'image-option';
+      const img = document.createElement('img');
+      img.src = opt.src;
+      img.alt = opt.caption;
+
+      const cap = document.createElement('div');
+      cap.className = 'image-caption';
+      cap.textContent = opt.caption;
+
+      card.appendChild(img);
+      card.appendChild(cap);
+
+      card.addEventListener('click', () => {
+        if (locked) return;
+        handleAnswer(card, opt.correct);
+      });
+
+      imagesRow.appendChild(card);
+    });
+  }
+
+  function showConfettiBurst() {
+    const emojis = ['🎉','✨','🎈','🌟','💫','🎊'];
+    for (let i = 0; i < 50; i++) {
+      const conf = document.createElement('div');
+      conf.className = 'confetti';
+      conf.textContent = emojis[Math.floor(Math.random()*emojis.length)];
+      conf.style.left = Math.random()*100 + '%';
+      conf.style.animationDuration = (1.6 + Math.random()*1.2) + 's';
+      confettiContainer.appendChild(conf);
+      setTimeout(() => conf.remove(), 2500);
+    }
+  }
+
+  function handleAnswer(card, isCorrect) {
+    if (isCorrect) {
+      locked = true;
+      card.classList.add('correct');
+      messageEl.textContent = 'Правильно! Молодец!';
+      messageEl.className = 'message ok';
+      if (fanfareSound) {
+        fanfareSound.currentTime = 0;
+        fanfareSound.play().catch(()=>{});
+      }
+      showConfettiBurst();
+      setTimeout(() => {
+        currentLevel++;
+        if (currentLevel >= LEVELS.length) {
+          winOverlay.style.display = 'flex';
+        } else {
+          locked = false;
+          renderLevel(currentLevel);
+        }
+      }, 2000);
+    } else {
+      card.classList.add('wrong');
+      messageEl.textContent = 'Неправильно 😢 Попробуй ещё раз!';
+      messageEl.className = 'message error';
+      if (wrongSound) {
+        wrongSound.currentTime = 0;
+        wrongSound.play().catch(()=>{});
+      }
+      setTimeout(() => {
+        card.classList.remove('wrong');
+      }, 800);
+    }
+  }
+
+  restartAllBtn.addEventListener('click', () => {
+    winOverlay.style.display = 'none';
+    currentLevel = 0;
+    locked = false;
+    renderLevel(currentLevel);
+  });
+
+  renderLevel(currentLevel);
+</script>
+</body>
+</html>
